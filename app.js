@@ -3,11 +3,28 @@
  * Module dependency
  */
 
-var express = require('express'),
-  routes = require('./routes'),
-  api = require('./routes/api'),
-  http = require('http'),
-  path = require('path');
+var express = require('express');
+var routes = require('./routes');
+var api = require('./routes/api');
+var http = require('http');
+var path = require('path');
+var mysql = require('mysql');
+var connection = mysql.createConnection({
+   user:'treadmill',
+   password:'e&4PGmpY2S24',
+   database:'treadmill',
+   host:'db'
+});
+
+var com = require("serialport");
+var serialPort = new com.SerialPort("/dev/ttyUSB0", {
+   baudrate: 38400,
+   parser: com.parsers.readline('\r\n')
+});
+
+serialPort.on('open', function() {
+   console.log('Serial port open');
+});
 
 var app = module.exports = express();
 var server = require('http').createServer(app);
@@ -20,7 +37,8 @@ var io = require('socket.io').listen(server);
 // all environments
 app.set('port', process.env.PORT || 3000);
 app.set('views', __dirname + '/views');
-app.set('view engine', 'jade');
+app.engine('html', require('ejs').renderFile);
+//app.set('view engine', 'jade');
 app.use(express.logger('dev'));
 app.use(express.bodyParser());
 app.use(express.methodOverride());
@@ -53,7 +71,67 @@ app.get('/api/name', api.name);
 app.get('*', routes.index);
 
 // Socket.io Communication
-io.sockets.on('connection', require('./routes/socket'));
+io.sockets.on('connection', function (socket) {
+   var speedChanged = true;
+   var oldSpeed;
+   serialPort.on('data', function(serialData) {
+      var duration = serialData.split("=")[1];
+      var speed = (0.0003066 * (duration)) - 2.2114;
+      speed = Math.round(speed*10)/10;
+      if (speed < 0) { speed = 0; }
+      if (speed == oldSpeed) {
+         speedChanged = false;
+      } else {
+         speedChanged = true;
+      }
+      oldSpeed = speed;
+//      speed += "mph";
+      var data = {speed: speed, totalDistance:totalDistance};
+      if (speedChanged) {
+         socket.emit('update', data);
+         console.log("SPEED = " + speed);
+      }
+   });
+});
+
+var db_speedChanged = true;
+var db_oldSpeed;
+var oldTime = new Date().getTime();
+var totalDistance = 0;
+serialPort.on('data', function(serialData) {
+   var duration = serialData.split("=")[1];
+   var speed = (0.0003066 * (duration)) - 2.2114;
+   speed = Math.round(speed*10)/10;
+   if (speed < 0) { speed = 0; }
+   if (speed == db_oldSpeed) {
+      db_speedChanged = false;
+   } else {
+      db_speedChanged = true;
+   }
+   db_oldSpeed = speed;
+   // speed += "mph";
+   // var data = {speed: speed};
+   if (db_speedChanged) {
+      var timestamp = Math.round(new Date().getTime()/10)/100;
+      var diffTime = new Date().getTime() - oldTime;
+      totalDistance += db_oldSpeed * (diffTime / 1000 / 60 / 60);
+      console.log("diffTime: " + diffTime + " milliseconds, totalDistance: " + totalDistance + "\r\n");
+      var row={session_id:'2',speed:speed,timestamp:timestamp,distance:totalDistance,incline:4.0,user_id:4}; //3=Spencer, 4=James
+      connection.query(
+         "INSERT INTO diary SET ?",
+         row,
+         function( err, result ){
+            if (err) throw err;
+            console.log("insertId = "+result.insertId+"\n");
+         }
+      );
+      oldTime = new Date().getTime();
+      if (speed == 0) {
+         totalDistance = 0;
+         //and insert new session, then update session used above
+      }
+   }
+});
 
 /**
  * Start Server

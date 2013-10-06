@@ -9,7 +9,9 @@ angular.module('myApp', [
   'myApp.directives',
 
   // 3rd party dependencies
-  'btford.socket-io'
+  'btford.socket-io',
+  'ui.bootstrap',
+  'ui.bootstrap.progressbar'
 ]).
 config(function ($routeProvider, $locationProvider) {
   $routeProvider.
