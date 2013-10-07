@@ -1,4 +1,13 @@
-# Angular Socket.io Seed
+# Treadmill Tracker
+
+Create a file called secrets.js that looks like this:
+
+// Passwords in here. Make sure secrets.js is in your .gitignore file!
+module.exports = {
+   username: 'bob',
+   password: '123'
+};
+
 
 Start an awesome app with AngularJS on the front, Socket.io + Express + Node on the back. This
 project is an application skeleton for writing [AngularJS](http://angularjs.org/) apps that use

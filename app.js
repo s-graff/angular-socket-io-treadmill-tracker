@@ -8,24 +8,9 @@ var routes = require('./routes');
 var api = require('./routes/api');
 var http = require('http');
 var path = require('path');
+var secrets = require('./secrets');
 var mysql = require('mysql');
-var connection = mysql.createConnection({
-   user:'treadmill',
-   password:'e&4PGmpY2S24',
-   database:'treadmill',
-   host:'db'
-});
-
-var com = require("serialport");
-var serialPort = new com.SerialPort("/dev/ttyUSB0", {
-   baudrate: 38400,
-   parser: com.parsers.readline('\r\n')
-});
-
-serialPort.on('open', function() {
-   console.log('Serial port open');
-});
-
+var configSerialPort = require('./configSerialPort');
 var app = module.exports = express();
 var server = require('http').createServer(app);
 var io = require('socket.io').listen(server);
@@ -69,6 +54,10 @@ app.get('/api/name', api.name);
 
 // redirect all others to the index (HTML5 history)
 app.get('*', routes.index);
+
+// Open local serial port and database.
+var connection = mysql.createConnection( secrets.mysqlConnectionParams );
+var serialPort = configSerialPort.open();
 
 // Socket.io Communication
 io.sockets.on('connection', function (socket) {
@@ -116,7 +105,7 @@ serialPort.on('data', function(serialData) {
       var diffTime = new Date().getTime() - oldTime;
       totalDistance += db_oldSpeed * (diffTime / 1000 / 60 / 60);
       console.log("diffTime: " + diffTime + " milliseconds, totalDistance: " + totalDistance + "\r\n");
-      var row={session_id:'2',speed:speed,timestamp:timestamp,distance:totalDistance,incline:4.0,user_id:4}; //3=Spencer, 4=James
+      var row={session_id:'3',speed:speed,timestamp:timestamp,distance:totalDistance,incline:4.0,user_id:3}; //3=Spencer, 4=James
       connection.query(
          "INSERT INTO diary SET ?",
          row,
