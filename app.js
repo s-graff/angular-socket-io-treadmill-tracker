@@ -55,8 +55,29 @@ app.get('/api/name', api.name);
 // redirect all others to the index (HTML5 history)
 app.get('*', routes.index);
 
-// Open local serial port and database.
-var connection = mysql.createConnection( secrets.mysqlConnectionParams );
+// Connect to database and setup to reconnect on disconnect..
+var connection = null;
+function handleDisconnectedDb(){
+   connection = mysql.createConnection( secrets.mysqlConnectionParams );
+   connection.connect( function( error ){
+   if( error ) {
+      console.log('Error on connecting to database: ', error );
+      setTimeout( handleDisconnectedDb, 3000 );
+   }
+} );
+   connection.on( "error", function( error ) {
+      console.log( "Database error: ", error );
+      if( error.code === "PROTOCOL_CONNECTION_LOST" ){
+         handleDisconnectedDb();
+      }else{
+         // Don't handle any error other than connection-lost:
+         throw error;
+      }
+   } );
+}
+handleDisconnectedDb();
+                                                         
+// Open serial port:
 var serialPort = configSerialPort.open();
 
 // Socket.io Communication
