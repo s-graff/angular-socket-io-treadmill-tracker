@@ -60,11 +60,11 @@ var connection = null;
 function handleDisconnectedDb(){
    connection = mysql.createConnection( secrets.mysqlConnectionParams );
    connection.connect( function( error ){
-   if( error ) {
-      console.log('Error on connecting to database: ', error );
-      setTimeout( handleDisconnectedDb, 3000 );
-   }
-} );
+      if( error ) {
+         console.log('Error on connecting to database: ', error );
+         setTimeout( handleDisconnectedDb, 3000 );
+      }
+   } );
    connection.on( "error", function( error ) {
       console.log( "Database error: ", error );
       if( error.code === "PROTOCOL_CONNECTION_LOST" ){
@@ -80,10 +80,16 @@ handleDisconnectedDb();
 // Open serial port:
 var serialPort = configSerialPort.open();
 
+var userId = '00000000';
 // Socket.io Communication
 io.sockets.on('connection', function (socket) {
    var speedChanged = true;
    var oldSpeed;
+   socket.on('userIdEmitted', function(data) {
+      socket.broadcast.emit('userIdBroadcast', data);
+      userId = data.userId;
+   });
+   socket.emit('userIdBroadcast', {userId:userId});
    serialPort.on('data', function(serialData) {
       var duration = serialData.split("=")[1];
       var speed = (0.0003066 * (duration)) - 2.2114;
@@ -126,13 +132,13 @@ serialPort.on('data', function(serialData) {
       var diffTime = new Date().getTime() - oldTime;
       totalDistance += db_oldSpeed * (diffTime / 1000 / 60 / 60);
       console.log("diffTime: " + diffTime + " milliseconds, totalDistance: " + totalDistance + "\r\n");
-      var row={session_id:'3',speed:speed,timestamp:timestamp,distance:totalDistance,incline:4.0,user_id:3}; //3=Spencer, 4=James
+      var row={session_id:'4',speed:speed,timestamp:timestamp,distance:totalDistance,incline:4.0,user_id:userId}; //3=Spencer, 4=James
       connection.query(
          "INSERT INTO diary SET ?",
          row,
          function( err, result ){
             if (err) throw err;
-            console.log("insertId = "+result.insertId+"\n");
+            console.log("insertId = "+result.insertId+", userId: " + userId + "\n");
          }
       );
       oldTime = new Date().getTime();
